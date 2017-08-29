@@ -78,8 +78,14 @@ int main(int argc, const char *argv[]) {
 
     char ipStr[16];
     htoa(currIP, ipStr);
-    //printf("Starting %s (%u)\n", ipStr, numIPs);
-    printf("Starting %s (%u)\n", ipStr, endIP - currIP + 1);
+    fprintf(history, "%s (%u)\n", ipStr, numIPs);
+
+    printf("Starting %s (%u)\n", ipStr, numIPs);
+    uint32_t totalSeconds = (numIPs * SCAN_TIMEOUT) / args.numThreads;
+    uint32_t numHours = totalSeconds / 3600;
+    uint32_t numMinutes = (totalSeconds % 3600) / 60;
+    uint32_t numSeconds = totalSeconds % 60;
+    printf("Est. duration %02u:%02u:%02u\n", numHours, numMinutes, numSeconds);
   }
 
   pthread_t threads[args.numThreads];
@@ -368,7 +374,7 @@ static size_t parseHeader(void *ptr, size_t size, size_t nmemb, void *userdata) 
   line[sizeof(line) - 1] = '\0';
 
   // if we've been signaled to fill in the basic realm, and it's not already
-  // filled in yet... (note that the first check is technically unnecesary,
+  // filled in yet... (note that the first check is technically unnecessary,
   // since the parseHeader callback will only be installed if the client
   // receives a "parsable" 401 response).
   if (basicRealm && !(*basicRealm)) {
@@ -403,14 +409,13 @@ static void die(const char *msg) {
 /*
  * Fills out a struct with all parameters needed to run: random IP selection,
  * country to select IPs from (if applicable), number of addresses to scan,
- * and worker thread count (defaults to 256).
+ * and worker thread count (defaults to 256; see wrthog.h).
  */
 static void parseArgs(args_t *args, const char *argv[]) {
-
   // establish defaults
   memset(args->startAddress, 0, sizeof(args->startAddress));
   args->numAddresses = 0;
-  args->numThreads = 256;
+  args->numThreads = DEFAULT_NUM_THREADS;
   memset(args->countryCode, 0, sizeof(args->countryCode));
   args->random = false;
 

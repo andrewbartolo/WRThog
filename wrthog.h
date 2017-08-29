@@ -22,6 +22,7 @@
 #define CSV_LINEBUF_SIZE        1024
 #define LIBCURL_LEGACY          true // set this to true for Ubuntu <= 13.04
 #define LOG                     true
+#define DEFAULT_NUM_THREADS     256
 #define RANDOM_STATEBUF_SIZE    64
 #define REALM_HEADER            "WWW-Authenticate: Basic realm=\""
 #define SCAN_MAX_REDIRS         3
