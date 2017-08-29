@@ -2,8 +2,9 @@
 
 static uint32_t currIP;
 static uint32_t endIP;    // inclusive - "through" the end IP
-static pthread_mutex_t ipMutex;
-static pthread_mutex_t printMutex;
+static bool useRandom;
+static pthread_mutex_t ipMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t printMutex = PTHREAD_MUTEX_INITIALIZER;
 static FILE *hosts;
 static FILE *history;
 static FILE *curlSink;
@@ -19,8 +20,8 @@ static FILE *downloadCSV(const char *url);
 static char **readCSV(FILE *csvFile, size_t *numCSVLines);
 static void selectIPBlock(char **csvLines, size_t numCSVLines);
 static char *getCSVColumn(const char *line, size_t columnNum);
-static void work(void *random);
-static inline uint32_t getIP(struct random_data *randBuf);
+static void work(void *tid);
+static inline uint32_t getIP(unsigned int *randState);
 static long curl(const char *ip, const char *username, const char *password,
                  char **basicRealm);
 static size_t parseHeader(void *ptr, size_t size, size_t nmemb, void *userdata);
@@ -28,12 +29,13 @@ static uint32_t atoh(const char *ipStr);
 static void htoa(uint32_t ip, char *buf);
 static void threadMsg(const char *msg);
 static void die(const char *msg);
-static struct Args parseArgs(const char *argv[]);
+static void parseArgs(args_t *args, const char *argv[]);
 
 
 int main(int argc, const char *argv[]) {
   //if (argc != 3) die("usage: wrthog <country code> <threads>");
-  struct Args args = parseArgs(argv);
+  args_t args;
+  parseArgs(&args, argv);
 
   size_t numCSVLines = 0;
   char **csvLines = NULL;
@@ -63,6 +65,9 @@ int main(int argc, const char *argv[]) {
     // populates currIP and endIP
     selectIPBlock(csvLines, numCSVLines); // check-already-scanned in here
   }
+  else if (args.random) {
+    useRandom = true;
+  }
 
   if (*args.startAddress || *args.countryCode) {
     char ipStr[16];
@@ -71,15 +76,15 @@ int main(int argc, const char *argv[]) {
   }
 
   pthread_t threads[args.numThreads];
-  for (int i = 0; i < args.numThreads; ++i) {
-    // no need to dereference a pointer - pass args.random by value
-    pthread_create(&threads[i], NULL, (void* (*)(void*))work, (void *)args.random);
+  for (size_t i = 0; i < args.numThreads; ++i) {
+    // no need to dereference a pointer - pass tid by value
+    pthread_create(&threads[i], NULL, (void* (*)(void*))work, (void *)i);
   }
-  for (int i = 0; i < args.numThreads; ++i) {
+  for (size_t i = 0; i < args.numThreads; ++i) {
     pthread_join(threads[i], NULL);
   }
 
-  if (args.countryCode) {
+  if (*args.countryCode) {
     // cleanup
     for (int i = 0; i < numCSVLines; ++i) {
       free(csvLines[i]);
@@ -201,27 +206,24 @@ static void htoa(uint32_t ip, char *buf) {
 }
 
 /*
- * Worker thread.  Remember that void *random is serves as a pass-by-value bool
+ * Worker thread.  Remember that void *tid serves as a pass-by-value integer
  * here. In the future, convert void *arg to port number, or rand/port # array?
  */
-static void work(void *random) {
-  struct random_data randBuf;
-  char randStateBuf[RANDOM_STATEBUF_SIZE];
+static void work(void *tid) {
+  // sloppy, but it works.
+  unsigned int randState = 0;
 
   // this may not belong here
   char ipStr[16];
 
   char *basicRealm = NULL;
 
-  if (random) {
-    memset(&randBuf, 0, sizeof(randBuf));
-    memset(randStateBuf, 0, sizeof(randStateBuf));
-    initstate_r(time(NULL) + pthread_self(), randStateBuf,
-                sizeof(randStateBuf), &randBuf);
+  if (useRandom) {
+    randState = time(NULL) + (size_t)tid;
   }
 
   outer: while (true) {
-    uint32_t ip = (random) ? getIP(&randBuf) : getIP(NULL);
+    uint32_t ip = (useRandom) ? getIP(&randState) : getIP(NULL);
     if (!ip) break;   // bug: could produce 0.0.0.0 and break before necessary
 
     htoa(ip, ipStr);
@@ -263,16 +265,15 @@ static void work(void *random) {
   if (basicRealm) free(basicRealm);
 }
 
-static inline uint32_t getIP(struct random_data *randBuf) {
+static inline uint32_t getIP(unsigned int *randState) {
   union {
     uint8_t octets[4];
     uint32_t ip;
   } _ip;
 
-  if (randBuf) {
+  if (randState) {
     for (int i = 0; i < 4; ++i) {
-      int32_t component;
-      random_r(randBuf, &component);
+      int32_t component = rand_r(randState);
       component %= 256;
       _ip.octets[i] = component; // doesn't matter what order in which we build
     }                            //  _ip; here, from least to most significant
@@ -387,41 +388,38 @@ static void die(const char *msg) {
  * country to select IPs from (if applicable), number of addresses to scan,
  * and worker thread count (defaults to 256).
  */
-static struct Args parseArgs(const char *argv[]) {
-  struct Args args;
+static void parseArgs(args_t *args, const char *argv[]) {
 
   // establish defaults
-  memset(args.startAddress, 0, sizeof(args.startAddress));
-  args.numAddresses = 0;
-  args.numThreads = 256;
-  memset(args.countryCode, 0, sizeof(args.countryCode));
-  args.random = false;
+  memset(args->startAddress, 0, sizeof(args->startAddress));
+  args->numAddresses = 0;
+  args->numThreads = 256;
+  memset(args->countryCode, 0, sizeof(args->countryCode));
+  args->random = false;
 
   ++argv;   // advance past executable name
   while (*argv) {
     // run modes
     if (!strcmp(*argv, "-r")) {
-      args.random = true;
+      args->random = true;
     }
 
     if (!*(argv + 1)) break;
 
     if (!strcmp(*argv, "-c")) {
-      strncpy(args.countryCode, *(argv + 1), sizeof(args.countryCode) - 1);
+      strncpy(args->countryCode, *(argv + 1), sizeof(args->countryCode) - 1);
     }
     if (!strcmp(*argv, "-a")) {
-      strncpy(args.startAddress, *(argv + 1), sizeof(args.startAddress) - 1);
+      strncpy(args->startAddress, *(argv + 1), sizeof(args->startAddress) - 1);
     }
     if (!strcmp(*argv, "-n")) {
-      args.numAddresses = atoi(*(argv + 1));
+      args->numAddresses = atoi(*(argv + 1));
     }
 
     if (!strcmp(*argv, "-t")) {
-      args.numThreads = atoi(*(argv + 1));
+      args->numThreads = atoi(*(argv + 1));
     }
 
     ++argv;
   }
-
-  return args;
 }

@@ -27,10 +27,10 @@
 #define SCAN_MAX_REDIRS         3
 #define SCAN_TIMEOUT            3
 
-struct Args {
+typedef struct {
   char startAddress[16];
   size_t numAddresses;
   size_t numThreads;
   char countryCode[3];
   bool random;
-};
+} args_t;
