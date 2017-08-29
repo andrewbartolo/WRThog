@@ -1,7 +1,10 @@
 #include "wrthog.h"
 
+static uint32_t startIP;
 static uint32_t currIP;
 static uint32_t endIP;    // inclusive - "through" the end IP
+static uint32_t numIPs;
+static uint32_t currPct;  // current percentage complete
 static bool useRandom;
 static pthread_mutex_t ipMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t printMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -70,8 +73,12 @@ int main(int argc, const char *argv[]) {
   }
 
   if (*args.startAddress || *args.countryCode) {
+    startIP = currIP;
+    numIPs = endIP - startIP + 1;
+
     char ipStr[16];
     htoa(currIP, ipStr);
+    //printf("Starting %s (%u)\n", ipStr, numIPs);
     printf("Starting %s (%u)\n", ipStr, endIP - currIP + 1);
   }
 
@@ -280,6 +287,16 @@ static inline uint32_t getIP(unsigned int *randState) {
   }
   else {
     pthread_mutex_lock(&ipMutex);
+
+    /* Progress counter */
+    uint32_t newCurrPct = (((currIP - startIP) * 100) / numIPs);
+    if (currPct < newCurrPct) {
+      printf("-- %u%% --\r", newCurrPct);
+      fflush(stdout);   // needed, as we don't have \n, only \r
+      currPct = newCurrPct;
+    }
+    /*                  */
+
     if (currIP > endIP) {     // this check must be protected
       pthread_mutex_unlock(&ipMutex);
       return 0;
