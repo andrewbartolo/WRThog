@@ -104,7 +104,7 @@ static FILE *downloadCSV(const char *url) {
   if (!curl) die("cURL init() failed");
 
   curl_easy_setopt(curl, CURLOPT_URL, url);
- 
+
   FILE *tmpFile = tmpfile();
 
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, tmpFile);
@@ -141,7 +141,7 @@ static char **readCSV(FILE *csvFile, size_t *numCSVLines) {
   return csvLines;
 }
 
-/* 
+/*
  * Sets global variables currIP and endIP in accord with the chosen IP address
  * range.
  */
@@ -162,9 +162,9 @@ static void selectIPBlock(char **csvLines, size_t numCSVLines) {
   free(endIPStr);
 }
 
-/* 
+/*
  * Returns a dynamically-allocated string representing the columnNum-th column
- * of char *line. 
+ * of char *line.
  */
 static char *getCSVColumn(const char *line, size_t columnNum) {
   char _line[strlen(line) + 1];
@@ -200,7 +200,7 @@ static void htoa(uint32_t ip, char *buf) {
           octets[3], octets[2], octets[1], octets[0]);
 }
 
-/* 
+/*
  * Worker thread.  Remember that void *random is serves as a pass-by-value bool
  * here. In the future, convert void *arg to port number, or rand/port # array?
  */
@@ -223,7 +223,7 @@ static void work(void *random) {
   outer: while (true) {
     uint32_t ip = (random) ? getIP(&randBuf) : getIP(NULL);
     if (!ip) break;   // bug: could produce 0.0.0.0 and break before necessary
-    
+
     htoa(ip, ipStr);
     //threadMsg(ipStr);
     long httpRes = curl(ipStr, NULL, NULL, NULL);
@@ -310,7 +310,7 @@ static long curl(const char *ip, const char *username, const char *password,
   // never mind, some embedded http servers are too dumb to understand a HEAD request
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, curlSink);  // discard res data
 
-  
+
   // prepare the callback to record the received header's "basic realm" field
   if (basicRealm) {
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, parseHeader);
@@ -323,7 +323,7 @@ static long curl(const char *ip, const char *username, const char *password,
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, SCAN_TIMEOUT);
   // BUG NOTE - libcURL bug mentioned on StackOverflow
   if (LIBCURL_LEGACY) curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-  
+
   if (username && password) {
     char authStr[strlen(username) + strlen(password) + 2];
     strcpy(authStr, username);
@@ -334,7 +334,7 @@ static long curl(const char *ip, const char *username, const char *password,
 
   curl_res = curl_easy_perform(curl);
   long http_res;
-  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_res); 
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_res);
 
   curl_easy_cleanup(curl);
 
@@ -405,7 +405,7 @@ static struct Args parseArgs(const char *argv[]) {
     }
 
     if (!*(argv + 1)) break;
-    
+
     if (!strcmp(*argv, "-c")) {
       strncpy(args.countryCode, *(argv + 1), sizeof(args.countryCode) - 1);
     }
