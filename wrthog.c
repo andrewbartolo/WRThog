@@ -5,6 +5,7 @@ static uint32_t currIP;
 static uint32_t endIP;    // inclusive - "through" the end IP
 static uint32_t numIPs;
 static uint32_t currPct;  // current percentage complete
+static uint32_t numSuccesses;
 static bool useRandom;
 static pthread_mutex_t ipMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t printMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -42,6 +43,7 @@ int main(int argc, const char *argv[]) {
 
   size_t numCSVLines = 0;
   char **csvLines = NULL;
+  char ipStr[16]; memset(ipStr, 0, 16);
 
   srand(time(NULL));
 
@@ -75,10 +77,7 @@ int main(int argc, const char *argv[]) {
   if (*args.startAddress || *args.countryCode) {
     startIP = currIP;
     numIPs = endIP - startIP + 1;
-
-    char ipStr[16];
-    htoa(currIP, ipStr);
-    fprintf(history, "%s (%u)\n", ipStr, numIPs);
+    htoa(startIP, ipStr);
 
     printf("Starting %s (%u)\n", ipStr, numIPs);
     uint32_t totalSeconds = (numIPs * SCAN_TIMEOUT) / args.numThreads;
@@ -103,6 +102,10 @@ int main(int argc, const char *argv[]) {
       free(csvLines[i]);
     }
     free(csvLines);
+  }
+
+  if (*ipStr) {
+    fprintf(history, "%s (%u) -- %u\n", ipStr, numIPs, numSuccesses);
   }
 
   fclose(hosts);
@@ -263,9 +266,10 @@ static void work(void *tid) {
                    ipStr, usernames[i], passwords[j], basicRealm);
             fprintf(hosts, "http://%s:%s@%s - %s\n", usernames[i], passwords[j],
                     ipStr, basicRealm);
-
              // buffer may not be flushed if wrthog receives SIGINT mid-scan
             fflush(hosts);
+
+            ++numSuccesses;
             pthread_mutex_unlock(&printMutex);
             goto outer;    // avoids duplicates
           }
