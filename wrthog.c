@@ -75,7 +75,7 @@ int main(int argc, const char *argv[]) {
   }
 
   if (*args.startAddress || *args.countryCode) {
-    startIP = currIP;
+    currIP = startIP;
     numIPs = endIP - startIP + 1;
     htoa(startIP, ipStr);
 
@@ -176,8 +176,15 @@ static void selectIPBlock(char **csvLines, size_t numCSVLines) {
   // don't need this... yet
   //char *numIPsInBlock = getCSVColumn(csvLines[index], 2);
 
-  currIP = atoh(startIPStr);
+  startIP = atoh(startIPStr);
   endIP = atoh(endIPStr);
+  numIPs = endIP - startIP + 1;
+
+  if (numIPs > MAX_BLOCK_IPS) {
+    printf("Only scanning first %u of %u-sized block.\n", MAX_BLOCK_IPS, numIPs);
+    endIP = startIP + MAX_BLOCK_IPS - 1;
+    numIPs = MAX_BLOCK_IPS;
+  }
 
   free(startIPStr);
   free(endIPStr);

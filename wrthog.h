@@ -20,10 +20,10 @@
 #define CSV_DOWNLOAD_TIMEOUT    5
 #define CSV_EXTENSION           ".csv"
 #define CSV_LINEBUF_SIZE        1024
+#define DEFAULT_NUM_THREADS     256
 #define LIBCURL_LEGACY          true // set this to true for Ubuntu <= 13.04
 #define LOG                     true
-#define DEFAULT_NUM_THREADS     256
-#define RANDOM_STATEBUF_SIZE    64
+#define MAX_BLOCK_IPS           32768
 #define REALM_HEADER            "WWW-Authenticate: Basic realm=\""
 #define SCAN_MAX_REDIRS         3
 #define SCAN_TIMEOUT            3
