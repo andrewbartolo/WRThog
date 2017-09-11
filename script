@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#for ((n=0;n<20;n++)); do ./wrthog -c au; sleep $((($RANDOM % 900) + 65)); done
+
+for ((n=0;n<20;n++)); do
+    ./wrthog -c us -t 512;
+    SLPTIME=$((($RANDOM % 180) + 28))
+    echo Sleeping $SLPTIME;
+    sleep $SLPTIME;
+done
